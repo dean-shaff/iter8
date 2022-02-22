@@ -51,6 +51,7 @@ type collectHTTPInputs struct {
 	Percentiles []float64 `json:"percentiles" yaml:"percentiles"`
 	// VersionInfo is a non-empty list of version values.
 	VersionInfo []*versionHTTP `json:"versionInfo" yaml:"versionInfo"`
+	// Headers map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
 }
 
 const (
@@ -68,6 +69,8 @@ const (
 	builtInHTTPLatencyMaxId            = "http-latency-max"
 	builtInHTTPLatencyHistId           = "http-latency"
 	builtInHTTPLatencyPercentilePrefix = "http-latency-p"
+	builtInActualQPSId 								 = "http-actual-qps"
+	builtInActualDurationId 					 = "http-actual-duration"
 )
 
 var (
@@ -183,9 +186,15 @@ func (t *collectHTTPTask) getFortioOptions(j int) (*fhttp.HTTPRunnerOptions, err
 	}
 
 	// headers
+	log.Logger.Trace("attempting to add headers")
 	for key, value := range t.With.VersionInfo[j].Headers {
+		log.Logger.Trace(key + ":" + value)
 		fo.AddAndValidateExtraHeader(key + ":" + value)
 	}
+	// for key, value := range t.With.Headers {
+	// 	log.Logger.Trace(key + ":" + value)
+	// 	fo.AddAndValidateExtraHeader(key + ":" + value)
+	// }
 
 	return fo, nil
 }
@@ -254,9 +263,31 @@ func (t *collectHTTPTask) Run(exp *Experiment) error {
 
 	for i := range t.With.VersionInfo {
 		if fm[i] != nil {
-			// request count
-			m := iter8BuiltInPrefix + "/" + builtInHTTPRequestCountId
+			log.Logger.Trace("fm=%+v", fm[i])
+			log.Logger.Trace("fm.DurationHistogram=%+v", fm[i].DurationHistogram)
+			log.Logger.Trace("fm.ActualQPS=%.6f\n", fm[i].ActualQPS)
+			log.Logger.Trace("fm.ActualDuration=%s\n", fm[i].ActualDuration)
+			// ActualQPS
+			m := iter8BuiltInPrefix + "/" + builtInActualQPSId
 			mm := MetricMeta{
+				Description: "Actual Queries per Second",
+				Type: GaugeMetricType,
+			}
+			in.updateMetric(m, mm, i, float64(fm[i].ActualQPS))
+
+			// ActualDuration
+			m = iter8BuiltInPrefix + "/" + builtInActualDurationId
+			mm = MetricMeta{
+				Description: "Actual Duration of Experiment",
+				Type:        GaugeMetricType,
+				Units:       StringPointer("msec"),
+			}
+			in.updateMetric(m, mm, i, float64(fm[i].ActualDuration.Milliseconds()))
+
+
+			// request count
+			m = iter8BuiltInPrefix + "/" + builtInHTTPRequestCountId
+			mm = MetricMeta{
 				Description: "number of requests sent",
 				Type:        CounterMetricType,
 			}
