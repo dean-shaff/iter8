@@ -68,6 +68,8 @@ const (
 	builtInHTTPLatencyMaxId            = "http-latency-max"
 	builtInHTTPLatencyHistId           = "http-latency"
 	builtInHTTPLatencyPercentilePrefix = "http-latency-p"
+	builtInActualQPSId 								 = "http-actual-qps"
+	builtInActualDurationId 					 = "http-actual-duration"
 )
 
 var (
@@ -254,9 +256,27 @@ func (t *collectHTTPTask) Run(exp *Experiment) error {
 
 	for i := range t.With.VersionInfo {
 		if fm[i] != nil {
-			// request count
-			m := iter8BuiltInPrefix + "/" + builtInHTTPRequestCountId
+
+			// ActualQPS
+			m := iter8BuiltInPrefix + "/" + builtInActualQPSId
 			mm := MetricMeta{
+				Description: "Actual Queries per Second",
+				Type: GaugeMetricType,
+			}
+			in.updateMetric(m, mm, i, float64(fm[i].ActualQPS))
+
+			// ActualDuration
+			m = iter8BuiltInPrefix + "/" + builtInActualDurationId
+			mm = MetricMeta{
+				Description: "Actual Duration of Experiment",
+				Type:        GaugeMetricType,
+				Units:       StringPointer("msec"),
+			}
+			in.updateMetric(m, mm, i, float64(fm[i].ActualDuration.Milliseconds()))
+
+			// request count
+			m = iter8BuiltInPrefix + "/" + builtInHTTPRequestCountId
+			mm = MetricMeta{
 				Description: "number of requests sent",
 				Type:        CounterMetricType,
 			}
